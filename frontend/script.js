@@ -63,7 +63,9 @@ const API = (typeof window !== 'undefined' && window.location.origin)
  * subsequent message so the backend knows which conversation we're in.
  */
 let sessionId = null;
+let chatHistory = [];
 
+const ACTIVE_CHAT_KEY = "jarvis_active_chat_id";
 /*
  * currentMode — Which AI pipeline to use: 'general' or 'realtime'.
  * This determines which backend endpoint we POST to (/chat/stream
@@ -373,6 +375,7 @@ function init() {
     initOrb();
     initSpeech();
     checkHealth();
+    loadChatHistory();
     bindEvents();
     autoResizeInput();
 }
@@ -631,6 +634,97 @@ async function checkHealth() {
     }
 }
 
+async function loadChatHistory() {
+    try {
+        const res = await fetch(`${API}/chat/history`);
+
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+
+        chatHistory = data.sessions || [];
+
+        console.log("Chat history loaded:", chatHistory);
+
+        renderChatHistory();
+
+        // Restore the chat that was open before refreshing
+        const savedSessionId = sessionStorage.getItem(ACTIVE_CHAT_KEY);
+
+        if (savedSessionId) {
+            const sessionExists = chatHistory.some(
+                session => session.session_id === savedSessionId
+            );
+
+            if (sessionExists) {
+                await loadChatSession(savedSessionId);
+            } else {
+                // The saved session may have been deleted
+                sessionStorage.removeItem(ACTIVE_CHAT_KEY);
+                sessionId = null;
+            }
+        }
+
+    } catch (error) {
+        console.error("Failed to load chat history:", error);
+    }
+}
+function renderChatHistory() {
+    const historyList = document.getElementById("chat-history-list");
+
+    if (!historyList) return;
+
+    historyList.innerHTML = "";
+
+    chatHistory.forEach(session => {
+        const item = document.createElement("button");
+
+        item.className = "chat-history-item";
+        item.textContent = session.messages?.[0]?.content || "New Chat";
+
+        item.addEventListener("click", async () => {
+            await loadChatSession(session.session_id);
+
+            // Keep the sidebar open.
+            // Do not hide it when a chat is selected.
+        });
+
+        historyList.appendChild(item);
+    });
+}
+async function loadChatSession(selectedSessionId) {
+    try {
+        const res = await fetch(`${API}/chat/history/${selectedSessionId}`);
+
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+
+        sessionId = selectedSessionId;
+
+        // Remember this chat for refresh restoration in this tab
+        sessionStorage.setItem(ACTIVE_CHAT_KEY, selectedSessionId);
+
+        chatMessages.innerHTML = "";
+
+        const messages = data.messages || [];
+
+        messages.forEach(message => {
+            addMessage(message.role, message.content);
+        });
+
+        scrollToBottom();
+
+        console.log("Chat session loaded:", selectedSessionId);
+
+    } catch (error) {
+        console.error("Failed to load chat session:", error);
+    }
+}
 /* ================================================================
    EVENT BINDING
    ================================================================
@@ -690,6 +784,15 @@ function bindEvents() {
     }
     if (searchResultsClose && searchResultsWidget) {
         searchResultsClose.addEventListener('click', () => searchResultsWidget.classList.remove('open'));
+    }
+    const sidebarToggleBtn = document.getElementById("sidebar-toggle-btn");
+    const sidebar = document.getElementById("chat-history-sidebar");
+
+    if (sidebarToggleBtn) {
+    sidebarToggleBtn.addEventListener("click", () => {
+        sidebar.classList.toggle("closed");
+        document.querySelector(".app").classList.toggle("sidebar-closed");
+    });
     }
 }
 
@@ -756,6 +859,7 @@ function setMode(mode) {
 function newChat() {
     if (ttsPlayer) ttsPlayer.stop();
     sessionId = null;
+    sessionStorage.removeItem(ACTIVE_CHAT_KEY);
     chatMessages.innerHTML = '';
     chatMessages.appendChild(createWelcome());
     messageInput.value = '';
@@ -1156,7 +1260,7 @@ async function sendMessage(textOverride) {
 
         // Set up the stream reader and SSE parser
         currentReader = res.body.getReader();
-const reader = currentReader;     // ReadableStream reader for the response body
+        const reader = currentReader;     // ReadableStream reader for the response body
         const decoder = new TextDecoder();          // Converts raw bytes (Uint8Array) to strings
         let sseBuffer = '';                         // Accumulates partial SSE lines between chunks
         let fullResponse = '';                      // The complete assistant response text so far
@@ -1185,7 +1289,11 @@ const reader = currentReader;     // ReadableStream reader for the response body
                     const data = JSON.parse(line.slice(6));
 
                     // Save the session ID if the server sends one
-                    if (data.session_id) sessionId = data.session_id;
+                    if (data.session_id) {
+                        sessionId = data.session_id;
+                        // Save new or existing conversation for refresh restoration
+                        sessionStorage.setItem(ACTIVE_CHAT_KEY, sessionId);
+                    }
 
                     // SEARCH RESULTS — Tavily data (realtime): show in right-side widget and reveal toggle
                     if (data.search_results) {

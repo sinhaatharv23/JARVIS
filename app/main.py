@@ -33,6 +33,7 @@ from app.retrieval.vector_store import VectorStoreService
 from app.ai.groq_service import GroqService, AllGroqApisFailedError
 from app.ai.realtime_service import RealtimeGroqService
 from app.chat.chat_service import ChatService
+from app.chat.history import ChatHistory
 
 from config import (
     VECTOR_STORE_DIR, GROQ_API_KEYS, GROQ_MODEL, TAVILY_API_KEY,
@@ -157,7 +158,7 @@ app = FastAPI(
     redoc_url=None,
     openapi_url=None,
 )
-
+chat_history = ChatHistory()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -613,8 +614,26 @@ async def chat_realtime_stream(request: ChatRequest):
         logger.error("[API /chat/realtime/stream] Error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/chat/history")
+async def get_all_chat_history():
+    try:
+        return {
+            "sessions": chat_history.list_sessions()
+        }
+
+    except Exception as e:
+        logger.error(
+            "Error retrieving all chat history: %s",
+            e,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to retrieve chat history",
+        )
 
 @app.get("/chat/history/{session_id}")
+
 async def get_chat_history(session_id: str):
 
     if not chat_service:
@@ -624,6 +643,7 @@ async def get_chat_history(session_id: str):
         )
 
     try:
+        chat_service.get_or_create_session(session_id)
         messages = chat_service.get_chat_history(session_id)
 
         return {

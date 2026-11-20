@@ -845,7 +845,7 @@ class ChatService:
         chat_history = self.format_history_for_llm(session_id, exclude_last=True)
 
         logger.info("[GENERAL-STREAM] History pairs sent to LLM: %d", len(chat_history))
-
+        logger.info("[GENERAL-STREAM] History content:\n%s", chat_history)
         chunk_count = 0
 
         try:

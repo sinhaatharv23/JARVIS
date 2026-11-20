@@ -1088,3 +1088,87 @@ textarea { font-family: var(--font); color: var(--text); }
     .search-result-card .card-title { font-size: 0.76rem; }
     .search-result-card .card-content { font-size: 0.72rem; -webkit-line-clamp: 3; }
 }
+/* ============================================================
+   CHAT HISTORY SIDEBAR
+   ============================================================ */
+
+.chat-history-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100vh;
+    padding: 24px 16px;
+    background: rgba(5, 5, 16, 0.95);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    z-index: 1000;
+}
+
+.chat-history-header {
+    margin-bottom: 20px;
+}
+
+.chat-history-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.chat-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+/* =========================================================
+   JARVIS — SLIDING SIDEBAR LAYOUT
+   ========================================================= */
+
+:root {
+    --sidebar-width: 280px;
+}
+
+/* Sidebar */
+.chat-history-sidebar {
+    width: var(--sidebar-width);
+    transform: translateX(0);
+    transition: transform 0.3s ease;
+    z-index: 1000;
+    box-sizing: border-box;
+}
+
+/* Main application moves as one complete section */
+.app {
+    margin-left: var(--sidebar-width);
+    width: calc(100% - var(--sidebar-width));
+    transition:
+        margin-left 0.3s ease,
+        width 0.3s ease;
+}
+
+/* Sidebar closed */
+.chat-history-sidebar.closed {
+    transform: translateX(-100%);
+}
+
+.app.sidebar-closed {
+    margin-left: 0;
+    width: 100%;
+}
+
+/* Orb stays centered in the visible main area */
+#orb-container {
+    left: calc(50% + var(--sidebar-width) / 2);
+    transition: left 0.3s ease;
+}
+
+.app.sidebar-closed ~ #orb-container {
+    left: 50%;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    :root {
+        --sidebar-width: 260px;
+    }
+}

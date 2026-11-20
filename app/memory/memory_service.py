@@ -39,7 +39,7 @@ class MemoryService:
     def __init__(self, groq_service):
         self.groq_service = groq_service
 
-    def analyze(self, user_message: str) -> List[Dict[str, Any]]:
+    def analyze(self, user_message: str, existing_memories: str,) -> List[Dict[str, Any]]:
         """
         Analyze the user's latest message.
 
@@ -98,10 +98,10 @@ family.txt
 - ONLY Atharva's family members.
 
 relationship.txt
-- Friends and friendship information.
-- Everything related to Aashu (Aastha Tarco), her family,
-  your relationship, anniversaries, important memories,
-  relationship milestones and future plans.
+- Everything related to people in the user's life, including
+  partner, friends, roommates, classmates, colleagues, mentors,
+  acquaintances, family connections, and important relationship
+  details or events.
 
 education.txt
 - Academic information.
@@ -302,12 +302,10 @@ Message:
 
 "Anna is my friend."
 
-
 Return:
 
-entry_key = "Friend's Name"
-
-entry_value = "Anna"
+entry_key = "Anna"
+entry_value = "Friend"
 
 Message:
 "Aashu's mother's name is Rakhi Tarco."
@@ -342,133 +340,105 @@ entry_key = "Favourite Movie"
 
 entry_value = "Interstellar"
 
+
+DYNAMIC MEMORY STRUCTURE
+
+Memory keys are dynamic and must be created from the user's actual
+information.
+
+The LLM must determine the most meaningful key based on the user's
+message and the target knowledge file.
+
+Do NOT restrict memory keys to a predefined list.
+
+Examples:
+
+User:
+"Remember that Anna is my friend."
+
+Possible output:
+entry_key = "Anna"
+entry_value = "Friend"
+
+User:
+"Remember that Rahul is my college roommate."
+
+Possible output:
+entry_key = "Rahul"
+entry_value = "College roommate"
+
+User:
+"Remember that Priya is my classmate."
+
+Possible output:
+entry_key = "Priya"
+entry_value = "Classmate"
+
+User:
+"Remember that Anna is Debu's roommate."
+
+Possible output:
+entry_key = "Anna"
+entry_value = "Friend; roommate of Debu"
+
+The key should identify the subject of the memory whenever
+appropriate, while the value should describe the remembered
+relationship, fact, or information.
+
+Do not invent information that the user did not provide.
+Do not force information into an unrelated predefined key.
+
 ==================================================
-CANONICAL MEMORY KEYS
+KEY CONSISTENCY RULE
 ==================================================
 
-Always use ONLY the following key names.
+When performing UPDATE or DELETE:
 
-Never invent a new key.
-Never shorten a key.
-Never use synonyms.
+- Always reuse the exact entry_key of the existing stored memory.
+- Never create a new key for an existing memory.
+- Never use synonyms, shortened forms, or alternate wording.
+- The entry_key must match the existing stored key exactly.
+- If the user's wording refers to an existing memory, treat it as that existing memory.
 
-Identity
---------
-Name
-Nickname
-Birthday
-Age
+Examples:
 
-Family
-------
-Mother's Name
-Father's Name
-Brother's Name
-Sister's Name
+Existing memory:
+Current Academic Year: Fourth Year
 
-Relationship
-------------
-Partner's Name
-Friend's Name
-Anniversary
-Relationship Status
+User:
+"Update my education: I am now in my 4th year."
 
-Preferences
------------
-Favourite IDE
-Favourite Programming Font
-Favourite Movie
-Favourite Book
-Favourite Song
-Favourite Food
-Favourite Colour
-Favourite Sport
-Favourite Game
-Favourite Animal
+Return:
+entry_key = "Current Academic Year"
+entry_value = "4th year"
 
-Career
-------
-Company
-Role
-Skill
-Project
-Goal
+NOT:
+entry_key = "Year"
 
-Health
-------
-Height
-Weight
+NOT:
+entry_key = "Academic Year"
 
-Education
----------
-Degree
-College
-University
-Branch
-CGPA
-
-Hobbies
--------
-Hobby
-
-Rules:
-
-If the user says:
-
-"My favourite programming font is Fira Code."
-
-Return
-
-entry_key = "Favourite Programming Font"
-
-NOT
-
-Programming Font
-
-NOT
-
-Favourite Font
 
 ----------------------------------------
 
-If the user says:
+Existing memory:
+Favourite Food: Biryani
 
-"My favourite IDE is IntelliJ IDEA."
+User:
+"Forget my favourite food."
 
-Return
+Return:
+entry_key = "Favourite Food"
 
-entry_key = "Favourite IDE"
+NOT:
+entry_key = "Food"
 
-NOT
+NOT:
+entry_key = "Favorite Food"
 
-IDE
 
-----------------------------------------
-
-If the user says:
-
-"I started learning Docker."
-
-Return
-
-entry_key = "Skill"
-
-entry_value = "Docker"
-
-----------------------------------------
-
-Always reuse an existing canonical key if one matches the user's information.
-
-Never invent a different key name for the same type of information.
-
-If a canonical key exists for the information,
-ALWAYS use that key exactly.
-
-Never create variations in spelling,
-capitalization, wording or formatting.
-
-The same fact must always produce
-the same entry_key.
+The purpose of this rule is to prevent duplicate keys and ensure
+UPDATE and DELETE operate on the existing stored memory.
 
 
 ==================================================
@@ -551,7 +521,13 @@ Never invent new operation names.
 
             response = self.groq_service.invoke_raw(
                 system_prompt=system_prompt,
-                user_prompt=user_message
+                user_prompt=f"""
+                Existing stored memories:
+                {existing_memories}
+
+                User message:
+                {user_message}
+                """
             )
 
             try:

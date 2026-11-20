@@ -136,7 +136,7 @@ CHUNK_OVERLAP = 200  # Overlap between chunks
 
 # Maximum conversation turns (user+assistant pairs) sent to the LLM per request.
 # Older turns are kept on disk but not sent to avoid context/token limits.
-MAX_CHAT_HISTORY_TURNS = 20
+MAX_CHAT_HISTORY_TURNS = 100
 
 # Maximum length (characters) for a single user message. Prevents token limit errors
 # and abuse. ~32K chars ≈ ~8K tokens; keeps total prompt well under model limits.

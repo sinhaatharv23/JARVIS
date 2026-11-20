@@ -61,8 +61,12 @@ class MemoryManager:
         logger.info("Starting memory pipeline...")
 
         # Step 1: Analyze the message
-        memories = self.memory_service.analyze(user_message)
-
+        existing_memories = self.memory_writer.list_memories()
+        logger.info(
+            "Existing memories passed to MemoryService:\n%s",
+            existing_memories,
+        )
+        memories = self.memory_service.analyze(user_message,existing_memories,)
         logger.info(
             "MemoryService returned %d operation(s).",
             len(memories),
